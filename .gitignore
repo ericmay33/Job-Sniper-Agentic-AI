@@ -1,0 +1,22 @@
+# Environments
+.venv/
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+dist/
+build/
+*.egg-info/
+
+# Tool caches
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store

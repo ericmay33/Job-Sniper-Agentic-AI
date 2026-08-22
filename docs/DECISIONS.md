@@ -45,3 +45,27 @@ A resume is compressed skim-optimized prose — poor retrieval substrate. The gr
 ### 2026-08-16 · Application submission stays manual
 Automated submission is ToS-hostile, quality-destroying, and solves the part that is already fast.
 **Rules out:** any browser-automation submission path.
+
+### 2026-08-22 · Run on system Python 3.14, hold the code to 3.12
+`.python-version` is 3.14 (the interpreter actually installed here) but `requires-python` is
+`>=3.12`, so ruff infers a py312 target and mypy type-checks against 3.12. The runtime is a local
+convenience; the compatibility floor is the contract.
+**Rules out:** 3.13/3.14-only syntax in the codebase, and a hard dependency on whatever Python the
+current machine happens to have.
+
+### 2026-08-22 · The model provider is configuration, not a dependency
+`.env.example` carries `LLM_PROVIDER` / `LLM_MODEL` / `LLM_API_KEY` / `LLM_BASE_URL`, and no
+provider SDK is in `dependencies`. When the first model call is built it goes behind one narrow
+adapter that reads those vars.
+**Rules out:** provider SDK types leaking into the Pydantic contracts or into call sites, and
+hardcoding a single vendor's client anywhere in the pipeline. Swapping providers must be an
+adapter change, not a pipeline change.
+
+### 2026-08-22 · Secret scanning is detect-secrets, not gitleaks
+gitleaks was the first choice, but its pre-commit hook is `language: golang` and TLS interception
+on this machine makes `go.dev/dl` fail certificate verification, so pre-commit cannot bootstrap Go.
+detect-secrets is pure Python and installs through pre-commit's own venv, which already works.
+The baseline is deliberately **empty** — the example DSN was rewritten to carry no inline
+credentials — so any finding at all blocks the commit.
+**Rules out:** an allowlist-by-accumulation baseline. A new entry in `.secrets.baseline` is a
+reviewed decision, not routine noise. Revisit gitleaks if the cert situation is ever fixed.

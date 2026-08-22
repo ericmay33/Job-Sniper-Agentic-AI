@@ -1,0 +1,25 @@
+# Secret scanning runs from commit one — this repo is public.
+# mypy and pytest are deliberately NOT hooks: they need the project venv, which
+# pre-commit's isolated envs misreport. Run them explicitly with `uv run`.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.4
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: [--baseline, .secrets.baseline]
+        # uv.lock is generated and full of high-entropy hashes; keep it out of
+        # the scanner so the baseline stays empty and any real finding blocks.
+        exclude: ^uv\.lock$
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: detect-private-key
+      - id: check-added-large-files
