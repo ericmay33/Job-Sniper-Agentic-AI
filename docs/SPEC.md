@@ -121,7 +121,8 @@ Three human interrupts, all durable. State checkpointed to Postgres.
 
 ## 6. BUILD ORDER
 
-**v0 (weekend):** repo + tooling + `CLAUDE.md`; Postgres schema; constraints and applied-history seeded from real data; canonicalization + dedupe; hard-filter engine; extraction; CLI triage with persisted decisions and reason codes. Eval harness alongside, not after.
+**v0 (weekend):** repo + tooling + `CLAUDE.md`; Postgres schema (a local native
+PostgreSQL service with pgvector, not a container — see `DECISIONS.md`); constraints and applied-history seeded from real data; canonicalization + dedupe; hard-filter engine; extraction; CLI triage with persisted decisions and reason codes. Eval harness alongside, not after.
 
 **v1:** experience atom corpus; fit scoring (deterministic + gap list); ranked shortlist; contact targeting rubric.
 **v2:** resolver cascade T0–T2 + verification + confidence; resolver eval over golden set.

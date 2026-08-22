@@ -4,7 +4,11 @@ version = "0.1.0"
 description = "Stateful job-search pipeline: discovery, filtering, contact resolution, grounded outreach with human approval."
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "psycopg[binary]>=3.2",
+    "python-dotenv>=1.0",
+    "sqlalchemy>=2.0",
+]
 
 [project.scripts]
 jobsniper = "jobsniper.cli:main"
@@ -67,3 +71,6 @@ warn_return_any = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+markers = [
+    "integration: needs a reachable DATABASE_URL; skipped when the server is not up",
+]

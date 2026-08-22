@@ -51,16 +51,22 @@ Create directories when a component is actually being built, not in advance.
 ## Commands
 
 ```
-uv sync                     install deps
-uv run pytest               tests
-uv run ruff check .         lint
-uv run ruff format .        format
-uv run mypy src             types
-docker compose up -d        start postgres
-uv run jobsniper <cmd>      CLI
+uv sync                       install deps
+uv run pytest                 tests
+uv run ruff check .           lint
+uv run ruff format .          format
+uv run mypy src               types
+uv run jobsniper db check     confirm the database connection
+uv run jobsniper db migrate   apply pending migrations
+uv run jobsniper <cmd>        CLI
 ```
 
 Never invoke `pip` directly. Dependencies go through `uv`.
+
+Postgres is a **local native service**, not a container — there is no `docker compose`
+here. Setup is machine-specific and lives in `docs/STATE.md`. Tests that need a live
+database are marked `integration` and skip when `DATABASE_URL` is unset or unreachable,
+so `uv run pytest` is green on a fresh checkout with no database.
 
 ---
 

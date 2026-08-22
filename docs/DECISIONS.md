@@ -69,3 +69,45 @@ The baseline is deliberately **empty** — the example DSN was rewritten to carr
 credentials — so any finding at all blocks the commit.
 **Rules out:** an allowlist-by-accumulation baseline. A new entry in `.secrets.baseline` is a
 reviewed decision, not routine noise. Revisit gitleaks if the cert situation is ever fixed.
+
+### 2026-08-22 · Postgres is a local native service, not a container
+The machine already runs PostgreSQL 18.1 as a Windows service. A pgvector container would
+have collided on port 5432, and a container cannot adopt an existing native data directory
+(different catalog version, and bind-mounting a Windows data dir into Linux corrupts
+permissions). Using what is installed removes a moving part rather than adding one.
+**Rules out:** a `docker-compose.yml` in this repo, and any assumption that the database is
+disposable. It is not: the data directory at `C:\Program Files\PostgreSQL\18\data` is the
+asset, and it is not recreated by a command. The cost is that setup is machine-specific —
+documented in `STATE.md` rather than reproducible from the repo alone.
+
+### 2026-08-22 · SQLAlchemy Core, no ORM
+`db/` uses SQLAlchemy Core over psycopg 3. Core gives connection and transaction handling
+and parameter binding; the SQL stays visible and hand-written, which matters because hard
+filters are meant to be readable predicates and the schema is the thing being learned.
+This closes the "whether `db/` uses psycopg directly" question left open on 2026-08-22.
+**Rules out:** the ORM layer — no declarative models, no session/identity map, no lazy
+loading. Pydantic models stay the contract between stages; they do not become table classes.
+
+### 2026-08-22 · The application connects as the `postgres` superuser
+Deliberate, and a known compromise. The DSN in `.env` authenticates as the cluster
+superuser, so a bad migration is not contained to the `jobsniper` database.
+**Accepted because:** single user, single machine, local-only connections, and it removes a
+role-and-grant step from setup while the schema is still changing shape weekly.
+**Revisit trigger** — either of these flips it to a least-privilege `jobsniper` role that
+owns only its own database: (a) this DSN is first used by anything unattended (a scheduled
+run, CI), or (b) the database stops being local-only.
+**Rules out:** treating the current permissions as a finished decision. This entry exists so
+the revisit is scheduled rather than forgotten.
+
+### 2026-08-22 · Migrations are forward-only, checksummed, and applied in one transaction
+Numbered `NNN_name.sql` files, tracked in `schema_migrations` (`version`, `name`, `checksum`,
+`applied_at`), which the runner creates itself rather than having a migration bootstrap it.
+Three properties are enforced in code, not just documented, because each fails silently:
+an applied migration whose checksum changed is a hard error; an applied version whose file
+has disappeared is a hard error; a pending version below the highest applied version is a
+hard error. A whole run is one transaction — Postgres has transactional DDL, so a failure
+leaves nothing half-applied, and the advisory lock guarding the run is transaction-scoped
+and therefore cannot leak if the process dies.
+**Rules out:** `down` migrations, editing an applied migration, and back-filling a lower
+number onto an existing database. Also rules out, for now, any migration needing
+`CREATE INDEX CONCURRENTLY`, which cannot run inside a transaction and would need its own path.
