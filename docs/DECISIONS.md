@@ -1,113 +1,94 @@
 # DECISIONS
 
-Append-only. Never rewrite an entry. If a decision is reversed, add a new entry that supersedes it and say why.
+Append-only. Never rewrite an entry — if a decision is reversed, add a new one that supersedes it.
 
-Each entry: what was decided, why, and what it rules out. This file exists so an agent (or a future you) understands *why* the code is shaped this way, not just that it is.
+Each entry: what was decided, and what it rules out. Short. This file tells an agent why the
+code is shaped this way, so keep it to decisions that constrain future work.
 
 ---
 
 ### 2026-08-16 · Hard filters are SQL predicates, not vectors
-Salary floor, location, YOE ceiling, and role family are exact predicates. They must be explainable — a rejection reads `requires 4 YOE`, not a distance score.
-**Rules out:** semantic filtering as the primary mechanism. Vector similarity is reserved for "roles like ones I approved."
+Salary floor, location, YOE ceiling, role family are exact predicates, so a rejection reads
+`requires 4 YOE` rather than a distance score.
+**Rules out:** semantic filtering as the primary mechanism. Vectors serve "roles like ones I approved."
 
 ### 2026-08-16 · Scoring is absolute, never batch-relative
-Fixed rubric anchors scored against the stored constraint set. Batch-relative scores are incomparable across months and would destroy the longitudinal record.
-**Rules out:** ranking by comparison within the current batch as the source of truth. Relative ordering is a sort over absolute scores.
+Fixed rubric against the stored constraint set. Batch-relative scores are incomparable across months.
+**Rules out:** in-batch ranking as the source of truth. Ordering is a sort over absolute scores.
 
 ### 2026-08-16 · Abstention is a first-class output
-A plausible fabricated address fails silently on send, which is worse than no result. Abstention rate is a reported headline metric, not an error rate.
+A plausible fabricated address fails silently on send. Abstention rate is a headline metric.
 **Rules out:** treating "no contact found" as a failure path or exception.
 
-### 2026-08-16 · Confidence is deterministic, not model-generated
-Composed as `strategy_base × verification_multiplier × name_role_match`, all factors logged. Reproducibility is what makes the hit-rate number mean anything.
+### 2026-08-16 · Confidence is deterministic
+`strategy_base × verification_multiplier × name_role_match`, every factor logged.
 **Rules out:** asking a model to rate its own confidence.
 
 ### 2026-08-16 · No agent loop in the resolver
-The resolver cascade is a deterministic escalation ladder with a budget policy. Making it agentic would destroy reproducibility. The reason-act loop belongs in `draft ↔ critique` and ambiguous page interpretation only.
+The resolver cascade is a deterministic escalation ladder with a budget policy; reproducibility
+depends on it. Reason-act belongs in `draft ↔ critique` and ambiguous page interpretation only.
 **Rules out:** a general-purpose agent loop as the resolver's control flow.
 
 ### 2026-08-16 · Canonical role identity, not URL identity
-The same req appears across multiple feeds under different titles and URLs. Identity is `(normalized_company, role_family, location_bucket, req_id)` with raw URLs stored many-to-one in `sources`.
-**Rules out:** keying exclusion state on URL. Without this, "never show me this again" silently fails.
+Identity is `(normalized_company, role_family, location_bucket, req_id)`; raw URLs are stored
+many-to-one in `sources`.
+**Rules out:** keying exclusion state on URL — "never show me this again" would silently fail.
 
 ### 2026-08-16 · Decisions are append-only with reason codes
-Reason code enum: `comp`, `location`, `yoe`, `stack`, `company`, `timing`. Insert a new row rather than updating an existing one.
-**Rules out:** mutable decision rows. The reason codes are what let the filter improve over time rather than only remember.
+Reason codes: `comp`, `location`, `yoe`, `stack`, `company`, `timing`. Insert a row, never update one.
+**Rules out:** mutable decision rows. The codes are what let the filter improve, not just remember.
 
 ### 2026-08-16 · No graph database yet
-`company → team → person → role` is a genuine graph but earns nothing at current scale. Relational schema stays graph-shaped (edges as rows, not JSON blobs) so traversal is a later addition rather than a migration.
-**Rules out:** Neo4j or equivalent before accumulated data justifies it.
+The schema stays relational but graph-shaped — edges as rows, not JSON blobs — so traversal is a
+later addition rather than a migration.
+**Rules out:** Neo4j or equivalent before the accumulated data justifies it.
 
 ### 2026-08-16 · Experience atoms, not resume PDFs
-A resume is compressed skim-optimized prose — poor retrieval substrate. The grounding corpus is atomic experience records at finer-than-bullet granularity, with skill tags and metrics.
-**Rules out:** embedding resume PDFs as the corpus. Resume variants become queries over atoms.
+The grounding corpus is atomic experience records with skill tags and metrics, finer than bullets.
+**Rules out:** embedding resume PDFs. Resume variants become queries over atoms.
 
 ### 2026-08-16 · Application submission stays manual
-Automated submission is ToS-hostile, quality-destroying, and solves the part that is already fast.
+Automated submission is ToS-hostile and quality-destroying, and it solves the part that is already fast.
 **Rules out:** any browser-automation submission path.
 
-### 2026-08-22 · Run on system Python 3.14, hold the code to 3.12
-`.python-version` is 3.14 (the interpreter actually installed here) but `requires-python` is
-`>=3.12`, so ruff infers a py312 target and mypy type-checks against 3.12. The runtime is a local
-convenience; the compatibility floor is the contract.
-**Rules out:** 3.13/3.14-only syntax in the codebase, and a hard dependency on whatever Python the
-current machine happens to have.
+### 2026-08-22 · Run on Python 3.14, hold the code to 3.12
+`.python-version` is 3.14; `requires-python` is `>=3.12`, so ruff and mypy target 3.12. The runtime
+is convenience, the floor is the contract.
+**Rules out:** 3.13/3.14-only syntax, and depending on whatever Python a machine happens to have.
 
 ### 2026-08-22 · The model provider is configuration, not a dependency
-`.env.example` carries `LLM_PROVIDER` / `LLM_MODEL` / `LLM_API_KEY` / `LLM_BASE_URL`, and no
-provider SDK is in `dependencies`. When the first model call is built it goes behind one narrow
-adapter that reads those vars.
-**Rules out:** provider SDK types leaking into the Pydantic contracts or into call sites, and
-hardcoding a single vendor's client anywhere in the pipeline. Swapping providers must be an
-adapter change, not a pipeline change.
+`LLM_PROVIDER` / `LLM_MODEL` / `LLM_API_KEY` / `LLM_BASE_URL` in env; no provider SDK in
+`dependencies`. The first model call goes behind one narrow adapter.
+**Rules out:** SDK types in the Pydantic contracts or at call sites. Swapping providers is an
+adapter change, never a pipeline change.
 
 ### 2026-08-22 · Secret scanning is detect-secrets, not gitleaks
-gitleaks was the first choice, but its pre-commit hook is `language: golang` and TLS interception
-on this machine makes `go.dev/dl` fail certificate verification, so pre-commit cannot bootstrap Go.
-detect-secrets is pure Python and installs through pre-commit's own venv, which already works.
-The baseline is deliberately **empty** — the example DSN was rewritten to carry no inline
-credentials — so any finding at all blocks the commit.
-**Rules out:** an allowlist-by-accumulation baseline. A new entry in `.secrets.baseline` is a
-reviewed decision, not routine noise. Revisit gitleaks if the cert situation is ever fixed.
+gitleaks' pre-commit hook is `language: golang` and TLS interception here breaks the Go bootstrap.
+detect-secrets is pure Python. The baseline is deliberately empty, so any finding blocks the commit.
+**Rules out:** an allowlist-by-accumulation baseline — a new baseline entry is a reviewed decision.
 
 ### 2026-08-22 · Postgres is a local native service, not a container
-The machine already runs PostgreSQL 18.1 as a Windows service. A pgvector container would
-have collided on port 5432, and a container cannot adopt an existing native data directory
-(different catalog version, and bind-mounting a Windows data dir into Linux corrupts
-permissions). Using what is installed removes a moving part rather than adding one.
-**Rules out:** a `docker-compose.yml` in this repo, and any assumption that the database is
-disposable. It is not: the data directory at `C:\Program Files\PostgreSQL\18\data` is the
-asset, and it is not recreated by a command. The cost is that setup is machine-specific —
-documented in `STATE.md` rather than reproducible from the repo alone.
+PostgreSQL 18.1 already runs as a Windows service on 5432, and a container cannot adopt an existing
+native data directory.
+**Rules out:** a `docker-compose.yml` here, and any assumption that the database is disposable —
+the data directory is the asset. The cost is machine-specific setup, recorded in `STATE.md`.
 
 ### 2026-08-22 · SQLAlchemy Core, no ORM
-`db/` uses SQLAlchemy Core over psycopg 3. Core gives connection and transaction handling
-and parameter binding; the SQL stays visible and hand-written, which matters because hard
-filters are meant to be readable predicates and the schema is the thing being learned.
-This closes the "whether `db/` uses psycopg directly" question left open on 2026-08-22.
-**Rules out:** the ORM layer — no declarative models, no session/identity map, no lazy
-loading. Pydantic models stay the contract between stages; they do not become table classes.
+Core gives connections, transactions, and parameter binding while the SQL stays hand-written, which
+matters when filters are meant to be readable predicates.
+**Rules out:** declarative models, sessions, lazy loading. Pydantic models stay the contract between
+stages; they do not become table classes.
 
 ### 2026-08-22 · The application connects as the `postgres` superuser
-Deliberate, and a known compromise. The DSN in `.env` authenticates as the cluster
-superuser, so a bad migration is not contained to the `jobsniper` database.
-**Accepted because:** single user, single machine, local-only connections, and it removes a
-role-and-grant step from setup while the schema is still changing shape weekly.
-**Revisit trigger** — either of these flips it to a least-privilege `jobsniper` role that
-owns only its own database: (a) this DSN is first used by anything unattended (a scheduled
-run, CI), or (b) the database stops being local-only.
-**Rules out:** treating the current permissions as a finished decision. This entry exists so
-the revisit is scheduled rather than forgotten.
+Accepted for now: single user, single machine, local-only, and it removes a role-and-grant step
+while the schema changes weekly.
+**Revisit trigger:** (a) this DSN is first used by anything unattended, or (b) the database stops
+being local-only. Either flips it to a least-privilege `jobsniper` role.
 
-### 2026-08-22 · Migrations are forward-only, checksummed, and applied in one transaction
-Numbered `NNN_name.sql` files, tracked in `schema_migrations` (`version`, `name`, `checksum`,
-`applied_at`), which the runner creates itself rather than having a migration bootstrap it.
-Three properties are enforced in code, not just documented, because each fails silently:
-an applied migration whose checksum changed is a hard error; an applied version whose file
-has disappeared is a hard error; a pending version below the highest applied version is a
-hard error. A whole run is one transaction — Postgres has transactional DDL, so a failure
-leaves nothing half-applied, and the advisory lock guarding the run is transaction-scoped
-and therefore cannot leak if the process dies.
-**Rules out:** `down` migrations, editing an applied migration, and back-filling a lower
-number onto an existing database. Also rules out, for now, any migration needing
-`CREATE INDEX CONCURRENTLY`, which cannot run inside a transaction and would need its own path.
+### 2026-08-22 · Migrations are forward-only, checksummed, one transaction
+Numbered `NNN_name.sql` tracked in `schema_migrations` (`version`, `name`, `checksum`, `applied_at`),
+which the runner creates itself. Three hard errors: a changed checksum on an applied migration, an
+applied migration whose file vanished, a pending version below the high-water mark. The advisory
+lock is transaction-scoped so it cannot leak.
+**Rules out:** down migrations, editing an applied migration, back-filling a lower number, and —
+for now — `CREATE INDEX CONCURRENTLY`, which cannot run inside a transaction.

@@ -26,3 +26,21 @@ uv run jobsniper --help     CLI
 
 Copy `.env.example` to `.env` and fill it in. This repo is public: secrets are env-based only, and
 a pre-commit secret scanner runs on every commit.
+
+## Database
+
+PostgreSQL with [pgvector](https://github.com/pgvector/pgvector), running as a local native
+service — there is no container here. Migrations are numbered SQL files under `migrations/`,
+applied forward-only and checksummed; an applied migration is immutable.
+
+```
+uv run jobsniper db check     server version + installed extensions
+uv run jobsniper db status    applied vs pending migrations
+uv run jobsniper db migrate   apply pending migrations
+```
+
+Setup is machine-specific and recorded in `docs/STATE.md`. On Windows, pgvector has no prebuilt
+binary and must be compiled with MSVC against the installed Postgres major version.
+
+Tests that need a live database are marked `integration` and skip when `DATABASE_URL` is unset or
+unreachable, so `uv run pytest` is green on a fresh checkout with no database.
